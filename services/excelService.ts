@@ -139,7 +139,7 @@ export const parseExcelFile = async (file: File): Promise<{ ads: Ad[], headers: 
           const price = Number(row[priceIdx]) || 0;
           const condition = row[getIdx('condition')] || 'New';
           const description = row[getIdx('description')] || '';
-          const category = row[getIdx('category')] || 'Home & Garden > Tools & Workshop Equipment';
+          const category = row[getIdx('category')] || ''; // Default to empty string instead of hardcoded value
           const offer_shipping = row[getIdx('offer shipping')] || 'No';
 
           // Extract ALL other fields into other_fields map

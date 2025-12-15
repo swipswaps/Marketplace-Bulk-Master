@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Ad, CONDITION_OPTIONS, SHIPPING_OPTIONS, validateAd } from '../types';
-import { Save, X, AlertCircle, MapPin, Share2, MoreHorizontal } from 'lucide-react';
+import { Save, X, AlertCircle, MapPin, Share2, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { adRepository } from '../services/adRepository';
 
 interface AdFormProps {
@@ -13,10 +13,10 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   const [formData, setFormData] = useState<Ad>({
     id: '',
     title: '',
-    price: 0,
+    price: NaN, // Start empty so datalist suggestions aren't filtered out by "0"
     condition: 'New',
     description: '',
-    category: 'Home & Garden > Tools & Workshop Equipment', 
+    category: '', 
     offer_shipping: 'No',
     other_fields: {}
   });
@@ -47,6 +47,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         addValue('title', ad.title);
         addValue('price', ad.price);
         addValue('category', ad.category);
+        addValue('description', ad.description);
         
         if (ad.other_fields) {
           Object.entries(ad.other_fields).forEach(([k, v]) => {
@@ -65,7 +66,14 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     if (initialData) {
       setFormData(initialData);
     } else {
-      setFormData(prev => ({ ...prev, id: crypto.randomUUID(), other_fields: {} }));
+      // If we are resetting to create mode, ensure price is NaN (empty) and category is empty
+      setFormData(prev => ({ 
+        ...prev, 
+        id: crypto.randomUUID(), 
+        price: NaN,
+        category: '',
+        other_fields: {} 
+      }));
     }
   }, [initialData]);
 
@@ -86,6 +94,11 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     const { name, value } = e.target;
     
     if (name === 'price') {
+      // Allow empty string to set NaN
+      if (value === '') {
+        setFormData(prev => ({ ...prev, price: NaN }));
+        return;
+      }
       const floatVal = parseFloat(value);
       setFormData(prev => ({
         ...prev,
@@ -181,19 +194,48 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Title */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Title <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="title"
-                list={getListId('title')}
-                value={formData.title}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.title ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
-                placeholder="What are you selling?"
-                autoComplete="off"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  name="title"
+                  list={getListId('title')}
+                  value={formData.title}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full rounded-md border px-3 py-2 pr-10 focus:outline-none focus:ring-2 transition-shadow ${errors.title ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
+                  placeholder="What are you selling?"
+                  autoComplete="off"
+                />
+                
+                {/* Embedded History Dropdown */}
+                {suggestions['title'] && suggestions['title'].length > 0 && (
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                    <div className="relative h-full flex items-center justify-center p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors" title="Select previously used title">
+                      <ChevronDown size={18} className="text-gray-400 pointer-events-none" />
+                      <select 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            setFormData(prev => ({ ...prev, title: val }));
+                            setTouched(prev => ({ ...prev, title: true }));
+                          }
+                        }}
+                        value=""
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+                      >
+                        <option value="" disabled></option>
+                        {suggestions['title'].map((t, idx) => (
+                          <option key={idx} value={t}>
+                            {t.length > 50 ? t.substring(0, 50) + '...' : t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
               {renderDataList('title')}
               {errors.title && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -220,6 +262,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                     className={`w-full rounded-md border pl-7 px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.price ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
                     autoComplete="off"
                   />
+                  {/* Native datalist used here without custom arrow as requested */}
                   {renderDataList('price')}
                 </div>
                 {errors.price && (
@@ -246,19 +289,49 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
             </div>
 
             {/* Category */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Category <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="category"
-                list={getListId('category')}
-                value={formData.category}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
-                placeholder="e.g. Home & Garden > Tools"
-                autoComplete="off"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  name="category"
+                  list={getListId('category')}
+                  value={formData.category}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full rounded-md border px-3 py-2 pr-10 focus:outline-none focus:ring-2 transition-shadow ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
+                  placeholder="e.g. Home & Garden > Tools"
+                  autoComplete="off"
+                />
+                
+                {/* Embedded History Dropdown for Category */}
+                {suggestions['category'] && suggestions['category'].length > 0 && (
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                    <div className="relative h-full flex items-center justify-center p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors" title="Select previously used category">
+                      <ChevronDown size={18} className="text-gray-400 pointer-events-none" />
+                      <select 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            setFormData(prev => ({ ...prev, category: val }));
+                            setTouched(prev => ({ ...prev, category: true }));
+                          }
+                        }}
+                        value=""
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+                      >
+                        <option value="" disabled></option>
+                        {suggestions['category'].map((cat, idx) => (
+                          <option key={idx} value={cat}>
+                            {cat.length > 50 ? cat.substring(0, 50) + '...' : cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               {renderDataList('category')}
               <p className="text-xs text-gray-500 mt-1">Use the format: Category {'>'} Subcategory</p>
               {errors.category && (
@@ -284,19 +357,50 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
             </div>
 
             {/* Description */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description <span className="text-red-500">*</span>
               </label>
-              <textarea
-                name="description"
-                rows={6}
-                value={formData.description}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow font-mono text-sm ${errors.description ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
-                placeholder="Describe your item details, pickup location, etc."
-              />
+              
+              <div className="relative">
+                <textarea
+                  name="description"
+                  rows={6}
+                  value={formData.description}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full rounded-md border px-3 py-2 pr-10 focus:outline-none focus:ring-2 transition-shadow font-mono text-sm ${errors.description ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
+                  placeholder="Describe your item details, pickup location, etc."
+                />
+                
+                {/* Embedded History Dropdown for Description */}
+                {suggestions['description'] && suggestions['description'].length > 0 && (
+                  <div className="absolute top-2 right-2">
+                    <div className="relative p-1 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-pointer shadow-sm" title="Select previously used description">
+                      <ChevronDown size={16} className="text-gray-400 pointer-events-none" />
+                      <select 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            setFormData(prev => ({ ...prev, description: val }));
+                            setTouched(prev => ({ ...prev, description: true }));
+                          }
+                        }}
+                        value=""
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+                      >
+                        <option value="" disabled></option>
+                        {suggestions['description'].map((desc, idx) => (
+                          <option key={idx} value={desc}>
+                            {desc.length > 50 ? desc.substring(0, 50) + '...' : desc}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle size={14} /> {errors.description}
