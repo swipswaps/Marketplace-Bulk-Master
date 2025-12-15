@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Ad, CONDITION_OPTIONS, SHIPPING_OPTIONS, validateAd } from '../types';
-import { Save, X, AlertCircle, MapPin, MessageCircle, Share2, MoreHorizontal } from 'lucide-react';
+import { Save, X, AlertCircle, MapPin, Share2, MoreHorizontal } from 'lucide-react';
 
 interface AdFormProps {
   initialData?: Ad | null;
@@ -45,10 +45,20 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'price' ? parseFloat(value) : value
-    }));
+    
+    // Improved Price handling: allows clearing the input (NaN) without forcing to 0
+    if (name === 'price') {
+      const floatVal = parseFloat(value);
+      setFormData(prev => ({
+        ...prev,
+        price: isNaN(floatVal) ? (NaN as any) : floatVal
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -59,8 +69,14 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clean up data before validate/save (e.g., ensure price is 0 if NaN/Empty)
+    const cleanData = {
+      ...formData,
+      price: isNaN(formData.price) ? 0 : formData.price
+    };
+    
     // Run full validation on submit
-    const validationErrors = validateAd(formData);
+    const validationErrors = validateAd(cleanData);
     if (Object.keys(validationErrors).length > 0) {
       setTouched({
         title: true,
@@ -71,10 +87,12 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         offer_shipping: true
       });
       setErrors(validationErrors);
+      // Update form data to match clean data (resets NaN to 0 visually) if needed, 
+      // but leaving it allows user to see the empty field error.
       return;
     }
 
-    onSave(formData);
+    onSave(cleanData);
   };
 
   const isValid = Object.keys(validateAd(formData)).length === 0;
@@ -128,7 +146,8 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                     name="price"
                     min="0"
                     step="0.01"
-                    value={formData.price}
+                    // Allow empty string if NaN (cleared)
+                    value={isNaN(formData.price) ? '' : formData.price}
                     onChange={handleChange}
                     onBlur={handleBlur}
                     className={`w-full rounded-md border pl-7 px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.price ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
@@ -261,7 +280,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                 
                 <div className="mt-1 mb-3">
                   <span className="text-lg font-bold text-gray-900">
-                    ${formData.price?.toFixed(2) || '0.00'}
+                    ${isNaN(formData.price) ? '0.00' : formData.price.toFixed(2)}
                   </span>
                 </div>
 

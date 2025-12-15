@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Ad, validateAd } from '../types';
-import { Edit2, Trash2, Package, AlertCircle } from 'lucide-react';
+import { Edit2, Trash2, Package, AlertCircle, Search } from 'lucide-react';
 
 interface AdListProps {
   ads: Ad[];
@@ -9,6 +9,14 @@ interface AdListProps {
 }
 
 const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredAds = ads.filter(ad => 
+    ad.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ad.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ad.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (ads.length === 0) {
     return (
       <div className="text-center py-16 bg-white rounded-lg border border-gray-200 border-dashed">
@@ -22,78 +30,102 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {ads.map((ad) => {
-              const errors = validateAd(ad);
-              const isValid = Object.keys(errors).length === 0;
-
-              return (
-                <tr key={ad.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-center w-16">
-                     {isValid ? (
-                       <span className="w-2 h-2 rounded-full bg-green-500 block mx-auto" title="Valid"></span>
-                     ) : (
-                       <div className="group relative flex justify-center">
-                         <AlertCircle size={18} className="text-red-500 cursor-help" />
-                         <div className="absolute left-6 top-0 z-10 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                            Missing: {Object.keys(errors).join(', ')}
-                         </div>
-                       </div>
-                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{ad.title}</div>
-                    <div className="text-xs text-gray-500 truncate max-w-xs">{ad.description.substring(0, 50)}...</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">${ad.price.toFixed(2)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      {ad.condition}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {ad.category}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => onEdit(ad)}
-                      className="text-blue-600 hover:text-blue-900 mr-4 transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(ad.id)}
-                      className="text-red-600 hover:text-red-900 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search size={18} className="text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search inventory by title, description, or category..."
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
-      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500 flex justify-between">
-        <span>Showing {ads.length} ads</span>
-        <span>Ready for Bulk Export</span>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredAds.length > 0 ? (
+                filteredAds.map((ad) => {
+                  const errors = validateAd(ad);
+                  const isValid = Object.keys(errors).length === 0;
+
+                  return (
+                    <tr key={ad.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-center w-16">
+                        {isValid ? (
+                          <span className="w-2 h-2 rounded-full bg-green-500 block mx-auto" title="Valid"></span>
+                        ) : (
+                          <div className="group relative flex justify-center">
+                            <AlertCircle size={18} className="text-red-500 cursor-help" />
+                            <div className="absolute left-full top-0 ml-2 z-50 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-normal">
+                                Missing: {Object.keys(errors).join(', ')}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{ad.title}</div>
+                        <div className="text-xs text-gray-500 truncate max-w-xs">{ad.description.substring(0, 50)}...</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">${ad.price.toFixed(2)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                          {ad.condition}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {ad.category}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => onEdit(ad)}
+                          className="text-blue-600 hover:text-blue-900 mr-4 transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => onDelete(ad.id)}
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                 <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                       No results found for "{searchTerm}"
+                    </td>
+                 </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500 flex justify-between">
+          <span>Showing {filteredAds.length} of {ads.length} ads</span>
+          <span>Ready for Bulk Export</span>
+        </div>
       </div>
     </div>
   );
