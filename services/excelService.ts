@@ -61,12 +61,34 @@ export const exportAdsToExcel = (ads: Ad[], headers: string[] = REQUIRED_HEADERS
   // 3. Create Sheet
   const ws = XLSX.utils.aoa_to_sheet(worksheetData);
 
-  // 4. Create Workbook
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Marketplace Ads");
+  // 4. Set column widths for better readability (if using standard headers)
+  if (headers.length === 6) {
+    ws['!cols'] = [
+      { wch: 50 },  // TITLE
+      { wch: 10 },  // PRICE
+      { wch: 15 },  // CONDITION
+      { wch: 80 },  // DESCRIPTION
+      { wch: 40 },  // CATEGORY
+      { wch: 15 }   // OFFER SHIPPING
+    ];
+  }
 
-  // 5. Download
-  XLSX.writeFile(wb, "Facebook_Marketplace_Bulk_Ads.xlsx");
+  // 5. Merge cells for metadata rows if they exist
+  // Typically Row 1 and Row 2 should be merged across all columns
+  if (metadata.length >= 2) {
+    const numCols = headers.length - 1;
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: numCols } }, // Row 1 merged
+      { s: { r: 1, c: 0 }, e: { r: 1, c: numCols } }  // Row 2 merged
+    ];
+  }
+
+  // 6. Create Workbook
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Bulk Upload Template");
+
+  // 7. Download
+  XLSX.writeFile(wb, "Facebook_Marketplace_Bulk_Upload.xlsx");
 };
 
 /**

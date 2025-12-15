@@ -22,18 +22,19 @@ export const CONDITION_OPTIONS = [
 export const SHIPPING_OPTIONS = ['Yes', 'No'];
 
 // Default headers if no template is imported
+// MUST be UPPERCASE to match Facebook's exact template format
 export const REQUIRED_HEADERS = [
-  'Title',
-  'Price',
-  'Condition',
-  'Description',
-  'Category',
-  'Offer Shipping'
+  'TITLE',
+  'PRICE',
+  'CONDITION',
+  'DESCRIPTION',
+  'CATEGORY',
+  'OFFER SHIPPING'
 ];
 
 export const TEMPLATE_METADATA = {
   row1: "Facebook Marketplace Bulk Upload Template",
-  row2: "Instructions: Fill in the details below. Do not change the header row. Price should be a number. Shipping must be Yes or No."
+  row2: "You can create up to 50 listings at once. When you are finished, be sure to save or export this as an XLS/XLSX file."
 };
 
 /**

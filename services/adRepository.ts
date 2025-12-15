@@ -95,11 +95,13 @@ export const adRepository = {
   getMetadata: (): any[][] => {
     const json = localStorage.getItem(METADATA_KEY);
     if (json) return JSON.parse(json);
-    
+
     // Default metadata matching standard FB template if nothing stored
+    // CRITICAL: Row 3 must be empty per Facebook's template structure
     return [
-      [TEMPLATE_METADATA.row1],
-      [TEMPLATE_METADATA.row2]
+      [TEMPLATE_METADATA.row1],  // Row 1: Title
+      [TEMPLATE_METADATA.row2],  // Row 2: Instructions
+      []                         // Row 3: EMPTY (required by Facebook)
     ];
   }
 };
