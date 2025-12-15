@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { Ad, REQUIRED_HEADERS, TEMPLATE_METADATA } from '../types';
+import { Ad, REQUIRED_HEADERS } from '../types';
 
 // Map normalized header names to Ad properties
 const FIELD_MAPPING: Record<string, keyof Ad> = {
@@ -10,12 +10,6 @@ const FIELD_MAPPING: Record<string, keyof Ad> = {
   'category': 'category',
   'offer shipping': 'offer_shipping'
 };
-
-// Reverse map for export
-const PROP_MAPPING: Record<string, string> = Object.entries(FIELD_MAPPING).reduce((acc, [k, v]) => {
-  acc[v] = k; // Note: This is approximate, mainly used for finding matches
-  return acc;
-}, {} as Record<string, string>);
 
 /**
  * Generates the specific Facebook Marketplace XLSX structure.
