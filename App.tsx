@@ -1,47 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, Plus, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { Upload, Download, Plus, ShoppingBag, AlertTriangle, Loader2 } from 'lucide-react';
 import { Ad, ViewState, validateAd } from './types';
 import AdList from './components/AdList';
 import AdForm from './components/AdForm';
 import { exportAdsToExcel, parseExcelFile } from './services/excelService';
-
-// Default data mocked from the user's chat log context (Solar Panels)
-const DEFAULT_ADS: Ad[] = [
-  {
-    id: '1',
-    title: '545W Bifacial Solar Panels — Solar Farm Release',
-    price: 59.95,
-    condition: 'New',
-    description: "High efficiency bifacial panels.\nDirect from solar farm project.\nContact us for details.",
-    category: 'Home & Garden > Tools & Workshop Equipment',
-    offer_shipping: 'No'
-  },
-  {
-    id: '2',
-    title: 'Installer Special — 545W Bifacial Panels',
-    price: 59.95,
-    condition: 'New',
-    description: "Perfect for contractors.\nBulk pricing available.\nCall (305) 498-1863.",
-    category: 'Home & Garden > Tools & Workshop Equipment',
-    offer_shipping: 'No'
-  }
-];
+import { adRepository } from './services/adRepository';
 
 export default function App() {
-  const [ads, setAds] = useState<Ad[]>(() => {
-    // Local Backend: Load from localStorage or default
-    const saved = localStorage.getItem('fb_marketplace_ads');
-    return saved ? JSON.parse(saved) : DEFAULT_ADS;
-  });
-  
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewState, setViewState] = useState<ViewState>('list');
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Local Backend: Persistence
+  // Initial load from "Backend"
   useEffect(() => {
-    localStorage.setItem('fb_marketplace_ads', JSON.stringify(ads));
-  }, [ads]);
+    loadInventory();
+  }, []);
+
+  const loadInventory = async () => {
+    setLoading(true);
+    try {
+      const data = await adRepository.findAll();
+      setAds(data);
+    } catch (err) {
+      console.error("Failed to load inventory", err);
+      setError("Could not load inventory from database.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddClick = () => {
     setEditingAd(null);
@@ -53,19 +41,25 @@ export default function App() {
     setViewState('edit');
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this ad?')) {
-      setAds(prev => prev.filter(ad => ad.id !== id));
+      try {
+        await adRepository.deleteById(id);
+        await loadInventory(); // Refresh view
+      } catch (err) {
+        setError("Failed to delete ad.");
+      }
     }
   };
 
-  const handleSaveAd = (ad: Ad) => {
-    if (viewState === 'create') {
-      setAds(prev => [...prev, ad]);
-    } else {
-      setAds(prev => prev.map(existing => existing.id === ad.id ? ad : existing));
+  const handleSaveAd = async (ad: Ad) => {
+    try {
+      await adRepository.save(ad);
+      await loadInventory(); // Refresh view
+      setViewState('list');
+    } catch (err) {
+      setError("Failed to save ad.");
     }
-    setViewState('list');
   };
 
   const handleExport = () => {
@@ -77,7 +71,11 @@ export default function App() {
       return;
     }
 
-    exportAdsToExcel(ads);
+    // Get the headers and metadata that were used for import
+    const currentHeaders = adRepository.getHeaders();
+    const currentMetadata = adRepository.getMetadata();
+    
+    exportAdsToExcel(ads, currentHeaders, currentMetadata);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,14 +84,25 @@ export default function App() {
 
     try {
       setError(null);
-      const parsedAds = await parseExcelFile(file);
+      // Parse file and get data + structure (headers and metadata)
+      const { ads: parsedAds, headers, metadata } = await parseExcelFile(file);
       
-      if (window.confirm(`Found ${parsedAds.length} ads in template. Replace current list?`)) {
-        setAds(parsedAds);
-      } else {
-        // Append instead
-        setAds(prev => [...prev, ...parsedAds]);
+      let newAdsList = parsedAds;
+
+      if (!window.confirm(`Found ${parsedAds.length} ads in template. Replace current list? Click Cancel to Append.`)) {
+         // Append mode
+         const currentAds = await adRepository.findAll();
+         newAdsList = [...currentAds, ...parsedAds];
       }
+
+      await adRepository.bulkImport(newAdsList);
+      
+      // Save the file structure (headers and metadata) to ensure we export in the exact same format
+      adRepository.saveHeaders(headers);
+      adRepository.saveMetadata(metadata);
+      
+      await loadInventory();
+      
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to parse file');
@@ -108,7 +117,7 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setViewState('list')}>
             <div className="bg-blue-600 p-2 rounded-lg text-white">
               <ShoppingBag size={20} />
             </div>
@@ -140,7 +149,7 @@ export default function App() {
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md flex items-start gap-3">
               <AlertTriangle className="text-red-500 mt-0.5" size={20} />
               <div>
-                <h3 className="text-sm font-medium text-red-800">Error reading template</h3>
+                <h3 className="text-sm font-medium text-red-800">System Message</h3>
                 <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
@@ -151,7 +160,7 @@ export default function App() {
               <div className="flex justify-between items-center">
                 <div>
                    <h2 className="text-lg font-semibold text-gray-900">Ad Inventory</h2>
-                   <p className="text-sm text-gray-500">Manage your listings before exporting to the bulk upload template.</p>
+                   <p className="text-sm text-gray-500">Manage your listings database.</p>
                 </div>
                 <button
                   onClick={handleAddClick}
@@ -162,11 +171,17 @@ export default function App() {
                 </button>
               </div>
 
-              <AdList 
-                ads={ads} 
-                onEdit={handleEditClick} 
-                onDelete={handleDeleteClick} 
-              />
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="animate-spin text-blue-600" size={32} />
+                </div>
+              ) : (
+                <AdList 
+                  ads={ads} 
+                  onEdit={handleEditClick} 
+                  onDelete={handleDeleteClick} 
+                />
+              )}
             </div>
           )}
 

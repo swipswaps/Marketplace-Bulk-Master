@@ -6,6 +6,8 @@ export interface Ad {
   description: string;
   category: string;
   offer_shipping: string; // 'Yes' or 'No'
+  // Store any extra columns from the imported template that we don't edit explicitly
+  other_fields?: Record<string, any>;
 }
 
 export type ViewState = 'list' | 'create' | 'edit';
@@ -19,7 +21,7 @@ export const CONDITION_OPTIONS = [
 
 export const SHIPPING_OPTIONS = ['Yes', 'No'];
 
-// Based on the chat log analysis of the required template
+// Default headers if no template is imported
 export const REQUIRED_HEADERS = [
   'Title',
   'Price',

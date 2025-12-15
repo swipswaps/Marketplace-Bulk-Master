@@ -1,30 +1,61 @@
 import * as XLSX from 'xlsx';
 import { Ad, REQUIRED_HEADERS, TEMPLATE_METADATA } from '../types';
 
+// Map normalized header names to Ad properties
+const FIELD_MAPPING: Record<string, keyof Ad> = {
+  'title': 'title',
+  'price': 'price',
+  'condition': 'condition',
+  'description': 'description',
+  'category': 'category',
+  'offer shipping': 'offer_shipping'
+};
+
+// Reverse map for export
+const PROP_MAPPING: Record<string, string> = Object.entries(FIELD_MAPPING).reduce((acc, [k, v]) => {
+  acc[v] = k; // Note: This is approximate, mainly used for finding matches
+  return acc;
+}, {} as Record<string, string>);
+
 /**
  * Generates the specific Facebook Marketplace XLSX structure.
- * Row 1: Template Title
- * Row 2: Instructions
- * Row 3: Headers
- * Row 4+: Data
+ * Respects the headers provided (from import) to preserve template columns.
+ * Prepends any metadata rows found during import.
  */
-export const exportAdsToExcel = (ads: Ad[]): void => {
-  // 1. Prepare the data array
-  const dataRows = ads.map(ad => [
-    ad.title,
-    ad.price,
-    ad.condition,
-    ad.description,
-    ad.category,
-    ad.offer_shipping
-  ]);
+export const exportAdsToExcel = (ads: Ad[], headers: string[] = REQUIRED_HEADERS, metadata: any[][] = []): void => {
+  // 1. Prepare the data array based on the provided headers
+  const dataRows = ads.map(ad => {
+    return headers.map(header => {
+      const cleanHeader = header.trim().toLowerCase();
+      const mappedProp = FIELD_MAPPING[cleanHeader];
 
-  // 2. Construct the full sheet data including metadata rows
+      // If it's a known property, return it
+      if (mappedProp && ad[mappedProp] !== undefined) {
+        return ad[mappedProp];
+      }
+
+      // If it's stored in other_fields (dynamic column), return that
+      if (ad.other_fields && ad.other_fields[header] !== undefined) {
+        return ad.other_fields[header];
+      }
+
+      // Fallback: Check if other_fields has it by normalized key
+      if (ad.other_fields) {
+         const key = Object.keys(ad.other_fields).find(k => k.trim().toLowerCase() === cleanHeader);
+         if (key) return ad.other_fields[key];
+      }
+
+      return ""; // Empty string for missing data in extra columns
+    });
+  });
+
+  // 2. Construct the full sheet data: Metadata Rows + Header Row + Data Rows
+  // If no metadata is passed (e.g. fresh start), we might default in App or Repo, 
+  // but here we just accept what is given to ensure exact match.
   const worksheetData = [
-    [TEMPLATE_METADATA.row1], // Row 1
-    [TEMPLATE_METADATA.row2], // Row 2
-    REQUIRED_HEADERS,         // Row 3
-    ...dataRows               // Row 4+
+    ...metadata,
+    headers,
+    ...dataRows
   ];
 
   // 3. Create Sheet
@@ -40,9 +71,9 @@ export const exportAdsToExcel = (ads: Ad[]): void => {
 
 /**
  * Parses a user uploaded Excel file.
- * Logic tries to find the Header row. The chat log implies headers are on Row 3.
+ * Returns the ads, the headers found, and any rows occurring before the headers (metadata).
  */
-export const parseExcelFile = async (file: File): Promise<Ad[]> => {
+export const parseExcelFile = async (file: File): Promise<{ ads: Ad[], headers: string[], metadata: any[][] }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
@@ -56,44 +87,85 @@ export const parseExcelFile = async (file: File): Promise<Ad[]> => {
         // Convert to array of arrays to inspect structure
         const jsonSheet = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-        if (jsonSheet.length < 3) {
-          throw new Error("File is too short. It must contain at least 3 rows (Title, Instructions, Headers).");
+        if (!jsonSheet || jsonSheet.length === 0) {
+          throw new Error("File is empty.");
         }
 
-        // Validate Headers (Row 3, index 2)
-        const fileHeaders = jsonSheet[2] as string[];
+        // Dynamic Header Detection: Scan the first 20 rows
+        let headerRowIndex = -1;
+        let fileHeaders: string[] = [];
+
+        for (let i = 0; i < Math.min(jsonSheet.length, 20); i++) {
+           const row = jsonSheet[i];
+           if (!row || !Array.isArray(row)) continue;
+           
+           // Check if this row looks like the header row
+           // We look for 'title' and 'price' as mandatory anchors
+           const rowStrings = row.map(cell => String(cell).trim().toLowerCase());
+           if (rowStrings.includes('title') && rowStrings.includes('price')) {
+             headerRowIndex = i;
+             fileHeaders = row as string[];
+             break;
+           }
+        }
+
+        if (headerRowIndex === -1) {
+           throw new Error("Invalid Template. Could not find a row containing 'Title' and 'Price' columns in the first 20 rows.");
+        }
+
+        // Capture everything before the header as metadata
+        const metadata = jsonSheet.slice(0, headerRowIndex);
+
         const cleanHeaders = fileHeaders.map(h => h?.trim()?.toLowerCase());
-        
-        // Basic validation checking if key columns exist
-        const hasTitle = cleanHeaders.includes('title');
-        const hasPrice = cleanHeaders.includes('price');
 
-        if (!hasTitle || !hasPrice) {
-          throw new Error("Invalid Template. Could not find 'Title' and 'Price' in Row 3.");
-        }
-
-        // Map data (starting at Row 4, index 3)
+        // Map data (starting at Row AFTER headers)
         const parsedAds: Ad[] = [];
         
         // Helper to find index case-insensitively
         const getIdx = (name: string) => cleanHeaders.indexOf(name.toLowerCase());
 
-        for (let i = 3; i < jsonSheet.length; i++) {
+        for (let i = headerRowIndex + 1; i < jsonSheet.length; i++) {
           const row = jsonSheet[i];
           if (!row || row.length === 0) continue;
 
+          // Extract standard fields
+          const titleIdx = getIdx('title');
+          const priceIdx = getIdx('price');
+
+          // Skip completely empty rows that might just be formatting
+          if (!row[titleIdx] && !row[priceIdx]) continue;
+
+          const title = row[titleIdx] || '';
+          const price = Number(row[priceIdx]) || 0;
+          const condition = row[getIdx('condition')] || 'New';
+          const description = row[getIdx('description')] || '';
+          const category = row[getIdx('category')] || 'Home & Garden > Tools & Workshop Equipment';
+          const offer_shipping = row[getIdx('offer shipping')] || 'No';
+
+          // Extract ALL other fields into other_fields map
+          const other_fields: Record<string, any> = {};
+          
+          fileHeaders.forEach((header, index) => {
+            const clean = header.trim().toLowerCase();
+            // If this header is NOT one of our mapped fields, save it
+            if (!FIELD_MAPPING[clean]) {
+              other_fields[header] = row[index];
+            }
+          });
+
           parsedAds.push({
             id: crypto.randomUUID(),
-            title: row[getIdx('title')] || '',
-            price: Number(row[getIdx('price')]) || 0,
-            condition: row[getIdx('condition')] || 'New',
-            description: row[getIdx('description')] || '',
-            category: row[getIdx('category')] || 'Home & Garden > Tools & Workshop Equipment', // Default fallback
-            offer_shipping: row[getIdx('offer shipping')] || 'No'
+            title,
+            price,
+            condition,
+            description,
+            category,
+            offer_shipping,
+            other_fields
           });
         }
 
-        resolve(parsedAds);
+        resolve({ ads: parsedAds, headers: fileHeaders, metadata });
 
       } catch (error) {
         reject(error);

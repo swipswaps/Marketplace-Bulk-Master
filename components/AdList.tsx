@@ -65,21 +65,22 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                   const isValid = Object.keys(errors).length === 0;
 
                   return (
-                    <tr key={ad.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={ad.id} 
+                      className="hover:bg-blue-50 transition-colors cursor-pointer group"
+                      onClick={() => onEdit(ad)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-center w-16">
                         {isValid ? (
                           <span className="w-2 h-2 rounded-full bg-green-500 block mx-auto" title="Valid"></span>
                         ) : (
-                          <div className="group relative flex justify-center">
-                            <AlertCircle size={18} className="text-red-500 cursor-help" />
-                            <div className="absolute left-full top-0 ml-2 z-50 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-normal">
-                                Missing: {Object.keys(errors).join(', ')}
-                            </div>
+                          <div className="relative flex justify-center">
+                            <AlertCircle size={18} className="text-red-500" />
                           </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{ad.title}</div>
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-blue-700">{ad.title}</div>
                         <div className="text-xs text-gray-500 truncate max-w-xs">{ad.description.substring(0, 50)}...</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -94,20 +95,28 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                         {ad.category}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => onEdit(ad)}
-                          className="text-blue-600 hover:text-blue-900 mr-4 transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => onDelete(ad.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(ad);
+                            }}
+                            className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                            title="Edit"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(ad.id);
+                            }}
+                            className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

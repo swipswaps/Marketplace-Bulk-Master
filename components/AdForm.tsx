@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Ad, CONDITION_OPTIONS, SHIPPING_OPTIONS, validateAd } from '../types';
 import { Save, X, AlertCircle, MapPin, Share2, MoreHorizontal } from 'lucide-react';
+import { adRepository } from '../services/adRepository';
 
 interface AdFormProps {
   initialData?: Ad | null;
@@ -15,25 +16,63 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     price: 0,
     condition: 'New',
     description: '',
-    category: 'Home & Garden > Tools & Workshop Equipment', // Default based on chat log
-    offer_shipping: 'No'
+    category: 'Home & Garden > Tools & Workshop Equipment', 
+    offer_shipping: 'No',
+    other_fields: {}
   });
 
+  const [headers, setHeaders] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
+    // Load current template headers
+    setHeaders(adRepository.getHeaders());
+
+    // Load existing ads to build autocomplete suggestions
+    adRepository.findAll().then(ads => {
+      const uniqueValues: Record<string, Set<string>> = {};
+      
+      const addValue = (key: string, val: any) => {
+        if (val === null || val === undefined || val === '') return;
+        const str = String(val).trim();
+        if (str === '') return;
+        
+        if (!uniqueValues[key]) uniqueValues[key] = new Set();
+        uniqueValues[key].add(str);
+      };
+
+      ads.forEach(ad => {
+        addValue('title', ad.title);
+        addValue('price', ad.price);
+        addValue('category', ad.category);
+        
+        if (ad.other_fields) {
+          Object.entries(ad.other_fields).forEach(([k, v]) => {
+            addValue(k, v);
+          });
+        }
+      });
+
+      const result: Record<string, string[]> = {};
+      Object.keys(uniqueValues).forEach(k => {
+        result[k] = Array.from(uniqueValues[k]).sort();
+      });
+      setSuggestions(result);
+    });
+
     if (initialData) {
       setFormData(initialData);
     } else {
-      setFormData(prev => ({ ...prev, id: crypto.randomUUID() }));
+      setFormData(prev => ({ ...prev, id: crypto.randomUUID(), other_fields: {} }));
     }
   }, [initialData]);
 
   // Real-time validation on change
   useEffect(() => {
     const validationErrors = validateAd(formData);
-    // Only show errors for touched fields to avoid overwhelming user initially
+    // Only show errors for touched fields
     const filteredErrors: Record<string, string> = {};
     Object.keys(validationErrors).forEach(key => {
       if (touched[key]) {
@@ -46,7 +85,6 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    // Improved Price handling: allows clearing the input (NaN) without forcing to 0
     if (name === 'price') {
       const floatVal = parseFloat(value);
       setFormData(prev => ({
@@ -61,6 +99,16 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     }
   };
 
+  const handleDynamicChange = (header: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      other_fields: {
+        ...prev.other_fields,
+        [header]: value
+      }
+    }));
+  };
+
   const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name } = e.target;
     setTouched(prev => ({ ...prev, [name]: true }));
@@ -69,13 +117,11 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Clean up data before validate/save (e.g., ensure price is 0 if NaN/Empty)
     const cleanData = {
       ...formData,
       price: isNaN(formData.price) ? 0 : formData.price
     };
     
-    // Run full validation on submit
     const validationErrors = validateAd(cleanData);
     if (Object.keys(validationErrors).length > 0) {
       setTouched({
@@ -87,8 +133,6 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         offer_shipping: true
       });
       setErrors(validationErrors);
-      // Update form data to match clean data (resets NaN to 0 visually) if needed, 
-      // but leaving it allows user to see the empty field error.
       return;
     }
 
@@ -96,6 +140,26 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   };
 
   const isValid = Object.keys(validateAd(formData)).length === 0;
+
+  // Identify extra fields from headers that aren't already in the form
+  const CORE_FIELDS = ['title', 'price', 'condition', 'description', 'category', 'offer shipping'];
+  const extraFields = headers.filter(h => !CORE_FIELDS.includes(h.toLowerCase().trim()));
+
+  // Helper to generate IDs for datalists
+  const getListId = (key: string) => `list-${key.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
+
+  // Helper to render datalist if suggestions exist
+  const renderDataList = (key: string) => {
+    const values = suggestions[key];
+    if (!values || values.length === 0) return null;
+    return (
+      <datalist id={getListId(key)}>
+        {values.map((val, idx) => (
+          <option key={`${key}-${idx}`} value={val} />
+        ))}
+      </datalist>
+    );
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-6xl mx-auto">
@@ -122,12 +186,15 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
               <input
                 type="text"
                 name="title"
+                list={getListId('title')}
                 value={formData.title}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.title ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="What are you selling?"
+                autoComplete="off"
               />
+              {renderDataList('title')}
               {errors.title && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle size={14} /> {errors.title}
@@ -144,14 +211,16 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   <input
                     type="number"
                     name="price"
+                    list={getListId('price')}
                     min="0"
                     step="0.01"
-                    // Allow empty string if NaN (cleared)
                     value={isNaN(formData.price) ? '' : formData.price}
                     onChange={handleChange}
                     onBlur={handleBlur}
                     className={`w-full rounded-md border pl-7 px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.price ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
+                    autoComplete="off"
                   />
+                  {renderDataList('price')}
                 </div>
                 {errors.price && (
                   <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -182,12 +251,15 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
               <input
                 type="text"
                 name="category"
+                list={getListId('category')}
                 value={formData.category}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="e.g. Home & Garden > Tools"
+                autoComplete="off"
               />
+              {renderDataList('category')}
               <p className="text-xs text-gray-500 mt-1">Use the format: Category {'>'} Subcategory</p>
               {errors.category && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -231,6 +303,32 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                 </p>
               )}
             </div>
+
+            {/* Dynamic Fields Section */}
+            {extraFields.length > 0 && (
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-md font-medium text-gray-900 mb-4">Additional Template Fields</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {extraFields.map((header) => (
+                    <div key={header}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 truncate" title={header}>
+                        {header}
+                      </label>
+                      <input
+                        type="text"
+                        list={getListId(header)}
+                        value={formData.other_fields?.[header] || ''}
+                        onChange={(e) => handleDynamicChange(header, e.target.value)}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={`Enter ${header}`}
+                        autoComplete="off"
+                      />
+                      {renderDataList(header)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 pt-6 border-t mt-4">
               <button
