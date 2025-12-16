@@ -82,7 +82,7 @@ When switching between ads, the expanded/collapsed state of the description prev
 ---
 
 ### 6. ✅ No Keyboard Shortcuts (ENHANCEMENT)
-**Problem:**  
+**Problem:**
 No keyboard shortcuts for common actions, reducing efficiency for power users.
 
 **Fix Applied:**
@@ -92,6 +92,22 @@ No keyboard shortcuts for common actions, reducing efficiency for power users.
 
 **Files Changed:**
 - `components/AdForm.tsx` (lines 97-108)
+
+---
+
+### 7. ✅ Search Functionality Not Working (CRITICAL)
+**Problem:**
+Search bar was present but typing didn't filter results. The filter logic had issues with null handling.
+
+**Fix Applied:**
+- Added proper null/undefined handling with `|| ''` fallback
+- Added `.trim()` to search term to handle whitespace
+- Explicit early return when search is empty
+- Fixed search icon vertical alignment (was partially hidden at bottom)
+- Changed icon positioning from `inset-y-0` to `top-1/2 -translate-y-1/2` for perfect centering
+
+**Files Changed:**
+- `components/AdList.tsx` (lines 14-25, 44-56)
 
 ---
 
@@ -107,6 +123,8 @@ No keyboard shortcuts for common actions, reducing efficiency for power users.
 - [x] Success message auto-dismisses after 3 seconds
 - [x] Description preview resets when switching ads
 - [x] Escape key closes the form
+- [x] Search filters results in real-time as you type
+- [x] Search icon properly centered in search bar
 - [x] No TypeScript errors
 - [x] No console errors
 
@@ -127,12 +145,25 @@ These were identified but not implemented as they weren't critical:
 
 ## Summary
 
-**Total Issues Fixed:** 6  
-**Critical:** 1  
-**High:** 1  
-**Medium:** 2  
-**Low:** 1  
-**Enhancement:** 1  
+**Total Issues Fixed:** 7
+**Critical:** 2 (See More button, Search functionality)
+**High:** 1 (Error tooltips)
+**Medium:** 2 (Export button state, Success feedback)
+**Low:** 1 (Description state reset)
+**Enhancement:** 1 (Keyboard shortcuts)
 
 All fixes maintain the existing code style and patterns. No breaking changes introduced.
+
+---
+
+## Deployment
+
+**Status:** ✅ Deployed to GitHub Pages
+
+- **Repository:** https://github.com/swipswaps/Marketplace-Bulk-Master
+- **Live Site:** https://swipswaps.github.io/Marketplace-Bulk-Master/
+- **Commit:** 7d88802
+- **Deployment Method:** gh-pages branch via `npm run deploy`
+
+The latest changes have been pushed to GitHub and deployed to GitHub Pages.
 
