@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Ad, CONDITION_OPTIONS, SHIPPING_OPTIONS, validateAd } from '../types';
 import { Save, X, AlertCircle, MapPin, Share2, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { adRepository } from '../services/adRepository';
@@ -18,28 +18,36 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     description: '',
     category: '',
     offer_shipping: 'No',
-    other_fields: {}
+    other_fields: {},
   });
 
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const headers = adRepository.getHeaders();
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
-  useEffect(() => {
-    // Load current template headers
-    setHeaders(adRepository.getHeaders());
+  // Compute validation errors based on current form data and touched fields
+  const errors = useMemo(() => {
+    const validationErrors = validateAd(formData);
+    const filteredErrors: Record<string, string> = {};
+    Object.keys(validationErrors).forEach(key => {
+      if (touched[key]) {
+        filteredErrors[key] = validationErrors[key];
+      }
+    });
+    return filteredErrors;
+  }, [formData, touched]);
 
-    // Load existing ads to build autocomplete suggestions
+  // Load autocomplete suggestions once on mount
+  useEffect(() => {
     adRepository.findAll().then(ads => {
       const uniqueValues: Record<string, Set<string>> = {};
-      
-      const addValue = (key: string, val: any) => {
+
+      const addValue = (key: string, val: string | number | boolean | undefined) => {
         if (val === null || val === undefined || val === '') return;
         const str = String(val).trim();
         if (str === '') return;
-        
+
         if (!uniqueValues[key]) uniqueValues[key] = new Set();
         uniqueValues[key].add(str);
       };
@@ -49,7 +57,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         addValue('price', ad.price);
         addValue('category', ad.category);
         addValue('description', ad.description);
-        
+
         if (ad.other_fields) {
           Object.entries(ad.other_fields).forEach(([k, v]) => {
             addValue(k, v);
@@ -63,36 +71,28 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
       });
       setSuggestions(result);
     });
+  }, []);
+
+  // Reset form when initialData changes
+  useEffect(() => {
+    setTouched({});
+    setIsDescriptionExpanded(false);
 
     if (initialData) {
       setFormData(initialData);
     } else {
-      // If we are resetting to create mode, ensure price is NaN (empty) and category is empty
-      setFormData(prev => ({
-        ...prev,
+      setFormData({
         id: crypto.randomUUID(),
+        title: '',
         price: NaN,
+        condition: 'new',
+        description: '',
         category: '',
-        other_fields: {}
-      }));
+        offer_shipping: 'No',
+        other_fields: {},
+      });
     }
-
-    // Reset description expanded state when switching ads
-    setIsDescriptionExpanded(false);
   }, [initialData]);
-
-  // Real-time validation on change
-  useEffect(() => {
-    const validationErrors = validateAd(formData);
-    // Only show errors for touched fields
-    const filteredErrors: Record<string, string> = {};
-    Object.keys(validationErrors).forEach(key => {
-      if (touched[key]) {
-        filteredErrors[key] = validationErrors[key];
-      }
-    });
-    setErrors(filteredErrors);
-  }, [formData, touched]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -107,9 +107,11 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onCancel]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    
+
     if (name === 'price') {
       // Allow empty string to set NaN
       if (value === '') {
@@ -119,12 +121,12 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
       const floatVal = parseFloat(value);
       setFormData(prev => ({
         ...prev,
-        price: isNaN(floatVal) ? (NaN as any) : floatVal
+        price: floatVal,
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
     }
   };
@@ -134,24 +136,26 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
       ...prev,
       other_fields: {
         ...prev.other_fields,
-        [header]: value
-      }
+        [header]: value,
+      },
     }));
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleBlur = (
+    e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name } = e.target;
     setTouched(prev => ({ ...prev, [name]: true }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const cleanData = {
       ...formData,
-      price: isNaN(formData.price) ? 0 : formData.price
+      price: isNaN(formData.price) ? 0 : formData.price,
     };
-    
+
     const validationErrors = validateAd(cleanData);
     if (Object.keys(validationErrors).length > 0) {
       setTouched({
@@ -160,9 +164,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         condition: true,
         category: true,
         description: true,
-        offer_shipping: true
+        offer_shipping: true,
       });
-      setErrors(validationErrors);
+      // Validation errors are already computed in the useMemo hook
       return;
     }
 
@@ -198,9 +202,14 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
           <h2 className="text-xl font-bold text-gray-800">
             {initialData ? 'Edit Listing' : 'Create New Listing'}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">Details will be formatted for the bulk upload template.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Details will be formatted for the bulk upload template.
+          </p>
         </div>
-        <button onClick={onCancel} className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100">
+        <button
+          onClick={onCancel}
+          className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
+        >
           <X size={24} />
         </button>
       </div>
@@ -209,10 +218,11 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         {/* LEFT COLUMN: FORM */}
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit} className="space-y-6">
-            
             {/* Title */}
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Title <span className="text-red-500">*</span>
+              </label>
               <div className="relative">
                 <input
                   type="text"
@@ -225,14 +235,17 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   placeholder="What are you selling?"
                   autoComplete="off"
                 />
-                
+
                 {/* Embedded History Dropdown */}
                 {suggestions['title'] && suggestions['title'].length > 0 && (
                   <div className="absolute inset-y-0 right-0 flex items-center pr-2">
-                    <div className="relative h-full flex items-center justify-center p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors" title="Select previously used title">
+                    <div
+                      className="relative h-full flex items-center justify-center p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                      title="Select previously used title"
+                    >
                       <ChevronDown size={18} className="text-gray-400 pointer-events-none" />
-                      <select 
-                        onChange={(e) => {
+                      <select
+                        onChange={e => {
                           const val = e.target.value;
                           if (val) {
                             setFormData(prev => ({ ...prev, title: val }));
@@ -264,7 +277,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Price */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Price <span className="text-red-500">*</span>
+                </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2 text-gray-500">$</span>
                   <input
@@ -299,7 +314,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {CONDITION_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -307,7 +324,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
 
             {/* Category */}
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category <span className="text-red-500">*</span>
+              </label>
               <div className="relative">
                 <input
                   type="text"
@@ -320,14 +339,17 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   placeholder="e.g. Home & Garden > Tools"
                   autoComplete="off"
                 />
-                
+
                 {/* Embedded History Dropdown for Category */}
                 {suggestions['category'] && suggestions['category'].length > 0 && (
                   <div className="absolute inset-y-0 right-0 flex items-center pr-2">
-                    <div className="relative h-full flex items-center justify-center p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors" title="Select previously used category">
+                    <div
+                      className="relative h-full flex items-center justify-center p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                      title="Select previously used category"
+                    >
                       <ChevronDown size={18} className="text-gray-400 pointer-events-none" />
-                      <select 
-                        onChange={(e) => {
+                      <select
+                        onChange={e => {
                           const val = e.target.value;
                           if (val) {
                             setFormData(prev => ({ ...prev, category: val }));
@@ -348,9 +370,11 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   </div>
                 )}
               </div>
-              
+
               {renderDataList('category')}
-              <p className="text-xs text-gray-500 mt-1">Use the format: Category {'>'} Subcategory</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Use the format: Category {'>'} Subcategory
+              </p>
               {errors.category && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle size={14} /> {errors.category}
@@ -360,7 +384,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
 
             {/* Offer Shipping */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Offer Shipping?</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Offer Shipping?
+              </label>
               <select
                 name="offer_shipping"
                 value={formData.offer_shipping}
@@ -368,7 +394,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {SHIPPING_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
                 ))}
               </select>
             </div>
@@ -378,7 +406,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description <span className="text-red-500">*</span>
               </label>
-              
+
               <div className="relative">
                 <textarea
                   name="description"
@@ -389,14 +417,17 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   className={`w-full rounded-md border px-3 py-2 pr-10 focus:outline-none focus:ring-2 transition-shadow font-mono text-sm ${errors.description ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
                   placeholder="Describe your item details, pickup location, etc."
                 />
-                
+
                 {/* Embedded History Dropdown for Description */}
                 {suggestions['description'] && suggestions['description'].length > 0 && (
                   <div className="absolute top-2 right-2">
-                    <div className="relative p-1 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-pointer shadow-sm" title="Select previously used description">
+                    <div
+                      className="relative p-1 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-pointer shadow-sm"
+                      title="Select previously used description"
+                    >
                       <ChevronDown size={16} className="text-gray-400 pointer-events-none" />
-                      <select 
-                        onChange={(e) => {
+                      <select
+                        onChange={e => {
                           const val = e.target.value;
                           if (val) {
                             setFormData(prev => ({ ...prev, description: val }));
@@ -417,7 +448,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   </div>
                 )}
               </div>
-              
+
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle size={14} /> {errors.description}
@@ -428,18 +459,23 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
             {/* Dynamic Fields Section */}
             {extraFields.length > 0 && (
               <div className="pt-6 border-t border-gray-200">
-                <h3 className="text-md font-medium text-gray-900 mb-4">Additional Template Fields</h3>
+                <h3 className="text-md font-medium text-gray-900 mb-4">
+                  Additional Template Fields
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {extraFields.map((header) => (
+                  {extraFields.map(header => (
                     <div key={header}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1 truncate" title={header}>
+                      <label
+                        className="block text-sm font-medium text-gray-700 mb-1 truncate"
+                        title={header}
+                      >
                         {header}
                       </label>
                       <input
                         type="text"
                         list={getListId(header)}
-                        value={formData.other_fields?.[header] || ''}
-                        onChange={(e) => handleDynamicChange(header, e.target.value)}
+                        value={String(formData.other_fields?.[header] || '')}
+                        onChange={e => handleDynamicChange(header, e.target.value)}
                         className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder={`Enter ${header}`}
                         autoComplete="off"
@@ -477,10 +513,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
               Facebook Marketplace Preview
             </h3>
-            
+
             {/* PREVIEW CARD */}
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden max-w-sm mx-auto">
-              
               {/* Image Placeholder */}
               <div className="h-48 bg-gray-100 flex flex-col items-center justify-center text-gray-400">
                 <div className="bg-gray-200 p-4 rounded-full mb-2">
@@ -493,10 +528,12 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
               <div className="p-4">
                 <div className="flex justify-between items-start">
                   <h4 className="text-lg font-semibold text-gray-900 leading-tight mb-1 break-words">
-                    {formData.title || <span className="text-gray-300 italic">Title goes here</span>}
+                    {formData.title || (
+                      <span className="text-gray-300 italic">Title goes here</span>
+                    )}
                   </h4>
                 </div>
-                
+
                 <div className="mt-1 mb-3">
                   <span className="text-lg font-bold text-gray-900">
                     ${isNaN(formData.price) ? '0.00' : formData.price.toFixed(2)}
@@ -504,21 +541,21 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                 </div>
 
                 <div className="text-sm text-gray-500 mb-4 flex items-center gap-1">
-                   <span>{formData.category?.split('>').pop()?.trim() || 'Category'}</span>
-                   <span>•</span>
-                   <span>{formData.condition}</span>
+                  <span>{formData.category?.split('>').pop()?.trim() || 'Category'}</span>
+                  <span>•</span>
+                  <span>{formData.condition}</span>
                 </div>
 
                 <div className="flex items-center gap-2 mb-4">
-                   <div className="flex-1 bg-gray-100 text-center py-2 rounded-md font-medium text-gray-700 text-sm">
-                      Message
-                   </div>
-                   <div className="p-2 bg-gray-100 rounded-md text-gray-700">
-                      <Share2 size={18} />
-                   </div>
-                   <div className="p-2 bg-gray-100 rounded-md text-gray-700">
-                      <MoreHorizontal size={18} />
-                   </div>
+                  <div className="flex-1 bg-gray-100 text-center py-2 rounded-md font-medium text-gray-700 text-sm">
+                    Message
+                  </div>
+                  <div className="p-2 bg-gray-100 rounded-md text-gray-700">
+                    <Share2 size={18} />
+                  </div>
+                  <div className="p-2 bg-gray-100 rounded-md text-gray-700">
+                    <MoreHorizontal size={18} />
+                  </div>
                 </div>
 
                 {/* Seller Description Preview */}
@@ -526,9 +563,11 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   <h5 className="text-sm font-semibold text-gray-900 mb-1">Description</h5>
                   <p className="text-sm text-gray-600 whitespace-pre-line break-words">
                     {formData.description ? (
-                      formData.description.length > 150 && !isDescriptionExpanded
-                        ? `${formData.description.substring(0, 150)}...`
-                        : formData.description
+                      formData.description.length > 150 && !isDescriptionExpanded ? (
+                        `${formData.description.substring(0, 150)}...`
+                      ) : (
+                        formData.description
+                      )
                     ) : (
                       <span className="text-gray-300 italic">Description text...</span>
                     )}
@@ -544,29 +583,32 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                 </div>
 
                 <div className="border-t pt-3 mt-3">
-                   <h5 className="text-sm font-semibold text-gray-900 mb-1">Seller Information</h5>
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">YOU</div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">Your Name</div>
-                        <div className="text-xs text-gray-500">Joined 2025</div>
-                      </div>
-                   </div>
+                  <h5 className="text-sm font-semibold text-gray-900 mb-1">Seller Information</h5>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                      YOU
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">Your Name</div>
+                      <div className="text-xs text-gray-500">Joined 2025</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Location Mock */}
-                 <div className="border-t pt-3 mt-3 flex items-center gap-1 text-gray-500 text-sm">
-                    <MapPin size={16} />
-                    <span>Location hidden</span>
-                 </div>
-
+                <div className="border-t pt-3 mt-3 flex items-center gap-1 text-gray-500 text-sm">
+                  <MapPin size={16} />
+                  <span>Location hidden</span>
+                </div>
               </div>
             </div>
 
             {/* Validation Summary Box if errors exist */}
             {!isValid && Object.keys(touched).length > 0 && (
               <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3">
-                <h4 className="text-xs font-bold text-red-800 uppercase mb-2">Missing Required Fields</h4>
+                <h4 className="text-xs font-bold text-red-800 uppercase mb-2">
+                  Missing Required Fields
+                </h4>
                 <ul className="text-xs text-red-700 list-disc list-inside space-y-1">
                   {Object.values(errors).map((err, i) => (
                     <li key={i}>{err}</li>
@@ -574,7 +616,6 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                 </ul>
               </div>
             )}
-
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Ad, REQUIRED_HEADERS, TEMPLATE_METADATA } from '../types';
+import { Ad, REQUIRED_HEADERS, TEMPLATE_METADATA, ExcelRow } from '../types';
 
 const DB_KEY = 'fb_marketplace_db_v1';
 const HEADERS_KEY = 'fb_marketplace_headers_v1';
@@ -13,7 +13,7 @@ export const adRepository = {
    * Initializes with seed data if empty.
    */
   findAll: async (): Promise<Ad[]> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // Simulate network delay for a realistic backend feel
       setTimeout(() => {
         try {
@@ -26,7 +26,7 @@ export const adRepository = {
             resolve(JSON.parse(json));
           }
         } catch (e) {
-          console.error("Database corruption, resetting:", e);
+          console.error('Database corruption, resetting:', e);
           localStorage.setItem(DB_KEY, JSON.stringify(SEED_DATA));
           resolve(SEED_DATA);
         }
@@ -40,13 +40,13 @@ export const adRepository = {
   save: async (ad: Ad): Promise<Ad> => {
     const all = await adRepository.findAll();
     const index = all.findIndex(item => item.id === ad.id);
-    
+
     if (index >= 0) {
       all[index] = ad;
     } else {
       all.push(ad);
     }
-    
+
     localStorage.setItem(DB_KEY, JSON.stringify(all));
     return ad;
   },
@@ -85,23 +85,23 @@ export const adRepository = {
   /**
    * Save the metadata rows (everything above the header row).
    */
-  saveMetadata: (metadata: any[][]) => {
+  saveMetadata: (metadata: ExcelRow[]) => {
     localStorage.setItem(METADATA_KEY, JSON.stringify(metadata));
   },
 
   /**
    * Get stored metadata rows to reconstruct the file exactly.
    */
-  getMetadata: (): any[][] => {
+  getMetadata: (): ExcelRow[] => {
     const json = localStorage.getItem(METADATA_KEY);
     if (json) return JSON.parse(json);
 
     // Default metadata matching standard FB template if nothing stored
     // CRITICAL: Row 3 must be empty per Facebook's template structure
     return [
-      [TEMPLATE_METADATA.row1],  // Row 1: Title
-      [TEMPLATE_METADATA.row2],  // Row 2: Instructions
-      []                         // Row 3: EMPTY (required by Facebook)
+      [TEMPLATE_METADATA.row1], // Row 1: Title
+      [TEMPLATE_METADATA.row2], // Row 2: Instructions
+      [], // Row 3: EMPTY (required by Facebook)
     ];
-  }
+  },
 };

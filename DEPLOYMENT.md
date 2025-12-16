@@ -14,11 +14,13 @@
 ## 🔧 Configuration
 
 ### Vite Configuration
+
 - **Base Path:** `/Marketplace-Bulk-Master/`
 - **Build Output:** `dist/`
 - **Framework:** React + TypeScript + Vite
 
 ### Package Scripts
+
 ```json
 {
   "predeploy": "npm run build",
@@ -43,6 +45,7 @@ npm run deploy
 ```
 
 The `npm run deploy` command will:
+
 1. Run `npm run build` (via predeploy script)
 2. Compile TypeScript
 3. Build production bundle with Vite
@@ -52,6 +55,7 @@ The `npm run deploy` command will:
 ## ✅ Verification
 
 After deployment, verify:
+
 - ✅ App loads at https://swipswaps.github.io/Marketplace-Bulk-Master/
 - ✅ All assets load correctly (no 404s)
 - ✅ Export function works
@@ -61,6 +65,7 @@ After deployment, verify:
 ## 🔍 GitHub Pages Settings
 
 To verify/modify GitHub Pages settings:
+
 1. Go to: https://github.com/swipswaps/Marketplace-Bulk-Master/settings/pages
 2. Ensure:
    - **Source:** Deploy from a branch
@@ -70,6 +75,7 @@ To verify/modify GitHub Pages settings:
 ## 📊 Build Information
 
 **Latest Build:**
+
 - Bundle Size: ~600 KB (minified)
 - Gzipped: ~197 KB
 - Modules: 1,476 transformed
@@ -89,16 +95,19 @@ To verify/modify GitHub Pages settings:
 ## 🐛 Troubleshooting
 
 ### If the page shows 404:
+
 1. Wait 2-3 minutes for GitHub Pages to update
 2. Check GitHub Pages settings (link above)
 3. Verify `gh-pages` branch exists
 4. Clear browser cache
 
 ### If assets don't load:
+
 1. Verify `base` in `vite.config.ts` is `/Marketplace-Bulk-Master/`
 2. Rebuild and redeploy: `npm run deploy`
 
 ### If changes don't appear:
+
 1. Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
 2. Clear browser cache
 3. Check if deployment completed: `git log gh-pages`
@@ -121,4 +130,3 @@ To verify/modify GitHub Pages settings:
 
 **Last Updated:** 2025-12-15  
 **Deployed By:** Automated via gh-pages package
-

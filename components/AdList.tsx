@@ -19,9 +19,7 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
     const description = (ad.description || '').toLowerCase();
     const category = (ad.category || '').toLowerCase();
 
-    return title.includes(search) ||
-           description.includes(search) ||
-           category.includes(search);
+    return title.includes(search) || description.includes(search) || category.includes(search);
   });
 
   if (ads.length === 0) {
@@ -48,7 +46,7 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
           placeholder="Search inventory by title, description, or category..."
           className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out shadow-sm"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={e => setSearchTerm(e.target.value)}
         />
       </div>
 
@@ -57,29 +55,44 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Title
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Price
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Condition
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAds.length > 0 ? (
-                filteredAds.map((ad) => {
+                filteredAds.map(ad => {
                   const errors = validateAd(ad);
                   const isValid = Object.keys(errors).length === 0;
 
                   return (
-                    <tr 
-                      key={ad.id} 
+                    <tr
+                      key={ad.id}
                       className="hover:bg-blue-50 transition-colors cursor-pointer group"
                       onClick={() => onEdit(ad)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-center w-16">
                         {isValid ? (
-                          <span className="w-2 h-2 rounded-full bg-green-500 block mx-auto" title="Valid"></span>
+                          <span
+                            className="w-2 h-2 rounded-full bg-green-500 block mx-auto"
+                            title="Valid"
+                          ></span>
                         ) : (
                           <div className="relative flex justify-center group/error">
                             <AlertCircle size={18} className="text-red-500" />
@@ -96,8 +109,12 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 group-hover:text-blue-700">{ad.title}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-xs">{ad.description.substring(0, 50)}...</div>
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-blue-700">
+                          {ad.title}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate max-w-xs">
+                          {ad.description.substring(0, 50)}...
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">${ad.price.toFixed(2)}</div>
@@ -113,7 +130,7 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-3">
                           <button
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation();
                               onEdit(ad);
                             }}
@@ -123,7 +140,7 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                             <Edit2 size={18} />
                           </button>
                           <button
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation();
                               onDelete(ad.id);
                             }}
@@ -138,17 +155,19 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                   );
                 })
               ) : (
-                 <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                       No results found for "{searchTerm}"
-                    </td>
-                 </tr>
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                    No results found for "{searchTerm}"
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
         <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500 flex justify-between">
-          <span>Showing {filteredAds.length} of {ads.length} ads</span>
+          <span>
+            Showing {filteredAds.length} of {ads.length} ads
+          </span>
           <span>Ready for Bulk Export</span>
         </div>
       </div>

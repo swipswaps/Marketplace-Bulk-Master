@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, Plus, ShoppingBag, AlertTriangle, Loader2, CheckCircle } from 'lucide-react';
+import {
+  Upload,
+  Download,
+  Plus,
+  ShoppingBag,
+  AlertTriangle,
+  Loader2,
+  CheckCircle,
+} from 'lucide-react';
 import { Ad, ViewState, validateAd } from './types';
 import AdList from './components/AdList';
 import AdForm from './components/AdForm';
@@ -25,8 +33,8 @@ export default function App() {
       const data = await adRepository.findAll();
       setAds(data);
     } catch (err) {
-      console.error("Failed to load inventory", err);
-      setError("Could not load inventory from database.");
+      console.error('Failed to load inventory', err);
+      setError('Could not load inventory from database.');
     } finally {
       setLoading(false);
     }
@@ -48,7 +56,8 @@ export default function App() {
         await adRepository.deleteById(id);
         await loadInventory(); // Refresh view
       } catch (err) {
-        setError("Failed to delete ad.");
+        console.error('Failed to delete ad', err);
+        setError('Failed to delete ad.');
       }
     }
   };
@@ -61,23 +70,26 @@ export default function App() {
       setSuccessMessage(editingAd ? 'Ad updated successfully!' : 'Ad created successfully!');
       setTimeout(() => setSuccessMessage(null), 3000); // Auto-hide after 3 seconds
     } catch (err) {
-      setError("Failed to save ad.");
+      console.error('Failed to save ad', err);
+      setError('Failed to save ad.');
     }
   };
 
   const handleExport = () => {
     // Validate all ads before export
     const invalidAds = ads.filter(ad => Object.keys(validateAd(ad)).length > 0);
-    
+
     if (invalidAds.length > 0) {
-      alert(`Cannot export! Please fix ${invalidAds.length} invalid ads (marked with red icons) before exporting.`);
+      alert(
+        `Cannot export! Please fix ${invalidAds.length} invalid ads (marked with red icons) before exporting.`
+      );
       return;
     }
 
     // Get the headers and metadata that were used for import
     const currentHeaders = adRepository.getHeaders();
     const currentMetadata = adRepository.getMetadata();
-    
+
     exportAdsToExcel(ads, currentHeaders, currentMetadata);
   };
 
@@ -89,26 +101,30 @@ export default function App() {
       setError(null);
       // Parse file and get data + structure (headers and metadata)
       const { ads: parsedAds, headers, metadata } = await parseExcelFile(file);
-      
+
       let newAdsList = parsedAds;
 
-      if (!window.confirm(`Found ${parsedAds.length} ads in template. Replace current list? Click Cancel to Append.`)) {
-         // Append mode
-         const currentAds = await adRepository.findAll();
-         newAdsList = [...currentAds, ...parsedAds];
+      if (
+        !window.confirm(
+          `Found ${parsedAds.length} ads in template. Replace current list? Click Cancel to Append.`
+        )
+      ) {
+        // Append mode
+        const currentAds = await adRepository.findAll();
+        newAdsList = [...currentAds, ...parsedAds];
       }
 
       await adRepository.bulkImport(newAdsList);
-      
+
       // Save the file structure (headers and metadata) to ensure we export in the exact same format
       adRepository.saveHeaders(headers);
       adRepository.saveMetadata(metadata);
-      
+
       await loadInventory();
-      
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || 'Failed to parse file');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to parse file';
+      setError(errorMessage);
     } finally {
       // Reset input
       e.target.value = '';
@@ -120,15 +136,20 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setViewState('list')}>
+          <div
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() => setViewState('list')}
+          >
             <div className="bg-blue-600 p-2 rounded-lg text-white">
               <ShoppingBag size={20} />
             </div>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Marketplace Bulk Master</h1>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+              Marketplace Bulk Master
+            </h1>
           </div>
-          
+
           <div className="flex items-center gap-3">
-             <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
               <Upload size={16} />
               Import Template
               <input type="file" accept=".xlsx" className="hidden" onChange={handleFileUpload} />
@@ -160,7 +181,6 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
           {error && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md flex items-start gap-3">
               <AlertTriangle className="text-red-500 mt-0.5" size={20} />
@@ -185,8 +205,8 @@ export default function App() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                   <h2 className="text-lg font-semibold text-gray-900">Ad Inventory</h2>
-                   <p className="text-sm text-gray-500">Manage your listings database.</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Ad Inventory</h2>
+                  <p className="text-sm text-gray-500">Manage your listings database.</p>
                 </div>
                 <button
                   onClick={handleAddClick}
@@ -202,18 +222,14 @@ export default function App() {
                   <Loader2 className="animate-spin text-blue-600" size={32} />
                 </div>
               ) : (
-                <AdList 
-                  ads={ads} 
-                  onEdit={handleEditClick} 
-                  onDelete={handleDeleteClick} 
-                />
+                <AdList ads={ads} onEdit={handleEditClick} onDelete={handleDeleteClick} />
               )}
             </div>
           )}
 
           {(viewState === 'create' || viewState === 'edit') && (
             <div className="animate-fade-in">
-              <AdForm 
+              <AdForm
                 initialData={editingAd}
                 onSave={handleSaveAd}
                 onCancel={() => setViewState('list')}
