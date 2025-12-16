@@ -11,11 +11,18 @@ interface AdListProps {
 const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredAds = ads.filter(ad => 
-    ad.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ad.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ad.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAds = ads.filter(ad => {
+    const search = searchTerm.toLowerCase().trim();
+    if (!search) return true; // Show all if search is empty
+
+    const title = (ad.title || '').toLowerCase();
+    const description = (ad.description || '').toLowerCase();
+    const category = (ad.category || '').toLowerCase();
+
+    return title.includes(search) ||
+           description.includes(search) ||
+           category.includes(search);
+  });
 
   if (ads.length === 0) {
     return (
@@ -33,7 +40,7 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
     <div className="space-y-4">
       {/* Search Bar */}
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <div className="absolute top-1/2 -translate-y-1/2 left-0 pl-3 flex items-center pointer-events-none">
           <Search size={18} className="text-gray-400" />
         </div>
         <input
@@ -74,8 +81,17 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                         {isValid ? (
                           <span className="w-2 h-2 rounded-full bg-green-500 block mx-auto" title="Valid"></span>
                         ) : (
-                          <div className="relative flex justify-center">
+                          <div className="relative flex justify-center group/error">
                             <AlertCircle size={18} className="text-red-500" />
+                            <div className="absolute bottom-full mb-2 hidden group-hover/error:block z-10 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg">
+                              <div className="font-semibold mb-1">Validation Errors:</div>
+                              <ul className="list-disc list-inside space-y-0.5">
+                                {Object.values(errors).map((err, i) => (
+                                  <li key={i}>{err}</li>
+                                ))}
+                              </ul>
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
                           </div>
                         )}
                       </td>

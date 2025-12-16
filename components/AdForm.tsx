@@ -16,7 +16,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     price: NaN, // Start empty so datalist suggestions aren't filtered out by "0"
     condition: 'New',
     description: '',
-    category: '', 
+    category: '',
     offer_shipping: 'No',
     other_fields: {}
   });
@@ -25,6 +25,7 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     // Load current template headers
@@ -67,14 +68,17 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
       setFormData(initialData);
     } else {
       // If we are resetting to create mode, ensure price is NaN (empty) and category is empty
-      setFormData(prev => ({ 
-        ...prev, 
-        id: crypto.randomUUID(), 
+      setFormData(prev => ({
+        ...prev,
+        id: crypto.randomUUID(),
         price: NaN,
         category: '',
-        other_fields: {} 
+        other_fields: {}
       }));
     }
+
+    // Reset description expanded state when switching ads
+    setIsDescriptionExpanded(false);
   }, [initialData]);
 
   // Real-time validation on change
@@ -89,6 +93,19 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     });
     setErrors(filteredErrors);
   }, [formData, touched]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to cancel
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -509,15 +526,20 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
                   <h5 className="text-sm font-semibold text-gray-900 mb-1">Description</h5>
                   <p className="text-sm text-gray-600 whitespace-pre-line break-words">
                     {formData.description ? (
-                      formData.description.length > 150 
-                        ? `${formData.description.substring(0, 150)}...` 
+                      formData.description.length > 150 && !isDescriptionExpanded
+                        ? `${formData.description.substring(0, 150)}...`
                         : formData.description
                     ) : (
                       <span className="text-gray-300 italic">Description text...</span>
                     )}
                   </p>
                   {formData.description && formData.description.length > 150 && (
-                    <span className="text-sm font-medium text-gray-900 mt-1 inline-block">See more</span>
+                    <button
+                      onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700 mt-1 inline-block cursor-pointer transition-colors"
+                    >
+                      {isDescriptionExpanded ? 'See less' : 'See more'}
+                    </button>
                   )}
                 </div>
 
