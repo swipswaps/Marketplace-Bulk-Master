@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Ad, validateAd } from '../types';
-import { Edit2, Trash2, Package, AlertCircle, Search } from 'lucide-react';
+import { Edit2, Trash2, Package, AlertCircle, Search, CheckCircle } from 'lucide-react';
 
 interface AdListProps {
   ads: Ad[];
@@ -80,6 +80,7 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                 filteredAds.map(ad => {
                   const errors = validateAd(ad);
                   const isValid = Object.keys(errors).length === 0;
+                  const isFacebookReady = !!(ad.url && ad.image_url);
 
                   return (
                     <tr
@@ -88,25 +89,36 @@ const AdList: React.FC<AdListProps> = ({ ads, onEdit, onDelete }) => {
                       onClick={() => onEdit(ad)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-center w-16">
-                        {isValid ? (
-                          <span
-                            className="w-2 h-2 rounded-full bg-green-500 block mx-auto"
-                            title="Valid"
-                          ></span>
-                        ) : (
-                          <div className="relative flex justify-center group/error">
-                            <AlertCircle size={18} className="text-red-500" />
-                            <div className="absolute bottom-full mb-2 hidden group-hover/error:block z-10 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg">
-                              <div className="font-semibold mb-1">Validation Errors:</div>
-                              <ul className="list-disc list-inside space-y-0.5">
-                                {Object.values(errors).map((err, i) => (
-                                  <li key={i}>{err}</li>
-                                ))}
-                              </ul>
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                        <div className="flex items-center justify-center gap-1">
+                          {isValid ? (
+                            <span
+                              className="w-2 h-2 rounded-full bg-green-500 block"
+                              title="Valid"
+                            ></span>
+                          ) : (
+                            <div className="relative flex justify-center group/error">
+                              <AlertCircle size={18} className="text-red-500" />
+                              <div className="absolute bottom-full mb-2 hidden group-hover/error:block z-10 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg">
+                                <div className="font-semibold mb-1">Validation Errors:</div>
+                                <ul className="list-disc list-inside space-y-0.5">
+                                  {Object.values(errors).map((err, i) => (
+                                    <li key={i}>{err}</li>
+                                  ))}
+                                </ul>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                          {isFacebookReady && (
+                            <div className="relative group/fb" title="Facebook Ready">
+                              <CheckCircle size={16} className="text-blue-600" />
+                              <div className="absolute bottom-full mb-2 hidden group-hover/fb:block z-10 w-32 p-2 bg-gray-900 text-white text-xs rounded shadow-lg whitespace-nowrap">
+                                Facebook Ready
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 group-hover:text-blue-700">

@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Ad, CONDITION_OPTIONS, SHIPPING_OPTIONS, validateAd } from '../types';
+import {
+  Ad,
+  CONDITION_OPTIONS,
+  SHIPPING_OPTIONS,
+  AVAILABILITY_OPTIONS,
+  validateAd,
+} from '../types';
 import { Save, X, AlertCircle, MapPin, Share2, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { adRepository } from '../services/adRepository';
 
@@ -18,6 +24,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
     description: '',
     category: '',
     offer_shipping: 'No',
+    url: '',
+    image_url: '',
+    availability: 'in stock',
     other_fields: {},
   });
 
@@ -89,6 +98,9 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
         description: '',
         category: '',
         offer_shipping: 'No',
+        url: '',
+        image_url: '',
+        availability: 'in stock',
         other_fields: {},
       });
     }
@@ -176,7 +188,17 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
   const isValid = Object.keys(validateAd(formData)).length === 0;
 
   // Identify extra fields from headers that aren't already in the form
-  const CORE_FIELDS = ['title', 'price', 'condition', 'description', 'category', 'offer shipping'];
+  const CORE_FIELDS = [
+    'title',
+    'price',
+    'condition',
+    'description',
+    'category',
+    'offer shipping',
+    'url',
+    'image_url',
+    'availability',
+  ];
   const extraFields = headers.filter(h => !CORE_FIELDS.includes(h.toLowerCase().trim()));
 
   // Helper to generate IDs for datalists
@@ -382,23 +404,94 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
               )}
             </div>
 
-            {/* Offer Shipping */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Offer Shipping */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Offer Shipping?
+                </label>
+                <select
+                  name="offer_shipping"
+                  value={formData.offer_shipping}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {SHIPPING_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Availability */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Availability
+                </label>
+                <select
+                  name="availability"
+                  value={formData.availability || 'in stock'}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {AVAILABILITY_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>
+                      {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Product URL */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Offer Shipping?
+                Product URL
+                <span className="text-xs text-gray-500 ml-2">(Optional - for Facebook API sync)</span>
               </label>
-              <select
-                name="offer_shipping"
-                value={formData.offer_shipping}
+              <input
+                type="url"
+                name="url"
+                value={formData.url || ''}
                 onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {SHIPPING_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+                onBlur={handleBlur}
+                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.url ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
+                placeholder="https://example.com/product"
+              />
+              {errors.url && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.url}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Landing page URL for this product (required for Facebook API integration)
+              </p>
+            </div>
+
+            {/* Image URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Image URL
+                <span className="text-xs text-orange-600 ml-2">(Required for Facebook sync)</span>
+              </label>
+              <input
+                type="url"
+                name="image_url"
+                value={formData.image_url || ''}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 transition-shadow ${errors.image_url ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
+                placeholder="https://example.com/image.jpg"
+              />
+              {errors.image_url && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.image_url}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Direct URL to product image (required for Facebook API integration)
+              </p>
             </div>
 
             {/* Description */}
@@ -516,13 +609,28 @@ const AdForm: React.FC<AdFormProps> = ({ initialData, onSave, onCancel }) => {
 
             {/* PREVIEW CARD */}
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden max-w-sm mx-auto">
-              {/* Image Placeholder */}
-              <div className="h-48 bg-gray-100 flex flex-col items-center justify-center text-gray-400">
-                <div className="bg-gray-200 p-4 rounded-full mb-2">
-                  <Share2 size={24} className="text-gray-400" />
+              {/* Image Placeholder or Actual Image */}
+              {formData.image_url ? (
+                <div className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={formData.image_url}
+                    alt={formData.title || 'Product'}
+                    className="w-full h-full object-cover"
+                    onError={e => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).parentElement!.innerHTML =
+                        '<div class="flex flex-col items-center justify-center h-full text-gray-400"><div class="bg-gray-200 p-4 rounded-full mb-2"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg></div><span class="text-xs">Invalid image URL</span></div>';
+                    }}
+                  />
                 </div>
-                <span className="text-xs">No image in template</span>
-              </div>
+              ) : (
+                <div className="h-48 bg-gray-100 flex flex-col items-center justify-center text-gray-400">
+                  <div className="bg-gray-200 p-4 rounded-full mb-2">
+                    <Share2 size={24} className="text-gray-400" />
+                  </div>
+                  <span className="text-xs">No image URL provided</span>
+                </div>
+              )}
 
               {/* Card Content */}
               <div className="p-4">
